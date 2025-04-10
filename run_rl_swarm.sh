@@ -30,21 +30,8 @@ HOST_MULTI_ADDRS=${HOST_MULTI_ADDRS:-$DEFAULT_HOST_MULTI_ADDRS}
 DEFAULT_IDENTITY_PATH="$ROOT"/swarm.pem
 IDENTITY_PATH=${IDENTITY_PATH:-$DEFAULT_IDENTITY_PATH}
 
-print_step() {
-    echo -e "\n${CYAN}${BOLD}Step $1: $2${NC}"
-}
-
-check_success() {
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✓ Success!${NC}"
-    else
-        echo -e "${RED}✗ Failed! Please check errors above and try again.${NC}"
-        exit 1
-    fi
-}
-
 cleanup() {
-    echo -e "${YELLOW}Shutting down processes...${NC}"
+    echo -e "${YELLOW}${BOLD}[✓] Shutting down processes...${NC}"
     kill $SERVER_PID 2>/dev/null || true
     kill $TUNNEL_PID 2>/dev/null || true
     exit 0
@@ -54,39 +41,11 @@ trap cleanup INT
 
 if [ -f "modal-login/temp-data/userData.json" ]; then
     cd modal-login
-    source ~/.bashrc
 
-    if ! command -v npm >/dev/null 2>&1; then
-        echo -e "${YELLOW}npm is not installed. Installing Node.js and npm...${NC}"
-        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-        source ~/.bashrc
-    fi
-
-    echo -e "\n${CYAN}Installing dependencies with npm. This may take a few minutes, depending on your internet speed...${NC}"
+    echo -e "\n${CYAN}${BOLD}[✓] Installing dependencies with npm. This may take a few minutes, depending on your internet speed...${NC}"
     npm install --legacy-peer-deps
     
-    npm run dev > /dev/null 2>&1 &
-    SERVER_PID=$!
-    cd ..
-
-    ORG_ID=$(awk 'BEGIN { FS = "\"" } !/^[ \t]*[{}]/ { print $(NF - 1); exit }' modal-login/temp-data/userData.json)
-    echo -e "\n${CYAN}ORG_ID has been set to: ${BOLD}$ORG_ID\n${NC}"
-else
-    cd modal-login
-    source ~/.bashrc
-
-    if ! command -v npm >/dev/null 2>&1; then
-        echo -e "${YELLOW}npm is not installed. Installing Node.js and npm...${NC}"
-        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-        source ~/.bashrc
-    fi
-
-    echo -e "\n${CYAN}Installing dependencies with npm. This may take a few minutes, depending on your internet speed...${NC}"
-    npm install --legacy-peer-deps
-
-    echo -e "\n${CYAN}Starting the development server...${NC}"
+    echo -e "\n${CYAN}${BOLD}[✓] Starting the development server...${NC}"
     npm run dev > server.log 2>&1 &
     SERVER_PID=$!
     MAX_WAIT=60  
@@ -94,7 +53,7 @@ else
         if grep -q "Local:        http://localhost:" server.log; then
             PORT=$(grep "Local:        http://localhost:" server.log | sed -n 's/.*http:\/\/localhost:\([0-9]*\).*/\1/p')
             if [ -n "$PORT" ]; then
-                echo -e "${GREEN}Server is running successfully on port $PORT.${NC}"
+                echo -e "${GREEN}${BOLD}[✓] Server is running successfully on port $PORT.${NC}"
                 break
             fi
         fi
@@ -102,79 +61,114 @@ else
     done
     
     if [ $i -eq $MAX_WAIT ]; then
-        echo -e "${RED}Timeout waiting for server to start.${NC}"
+        echo -e "${RED}${BOLD}[✗] Timeout waiting for server to start.${NC}"
         kill $SERVER_PID 2>/dev/null || true
         exit 1
     fi
 
-    print_step 1 "Detecting system architecture"
+    export MODAL_PORT=$PORT
+    
+    cd ..
+
+    ORG_ID=$(awk 'BEGIN { FS = "\"" } !/^[ \t]*[{}]/ { print $(NF - 1); exit }' modal-login/temp-data/userData.json)
+    echo -e "\n${CYAN}${BOLD}[✓] ORG_ID has been set to: ${BOLD}$ORG_ID\n${NC}"
+else
+    cd modal-login
+
+    echo -e "\n${CYAN}${BOLD}[✓] Installing dependencies with npm. This may take a few minutes, depending on your internet speed...${NC}"
+    npm install --legacy-peer-deps
+
+    echo -e "\n${CYAN}${BOLD}[✓] Starting the development server...${NC}"
+    npm run dev > server.log 2>&1 &
+    SERVER_PID=$!
+    MAX_WAIT=60  
+    for ((i = 0; i < MAX_WAIT; i++)); do
+        if grep -q "Local:        http://localhost:" server.log; then
+            PORT=$(grep "Local:        http://localhost:" server.log | sed -n 's/.*http:\/\/localhost:\([0-9]*\).*/\1/p')
+            if [ -n "$PORT" ]; then
+                echo -e "${GREEN}${BOLD}[✓] Server is running successfully on port $PORT.${NC}"
+                break
+            fi
+        fi
+        sleep 1
+    done
+    
+    if [ $i -eq $MAX_WAIT ]; then
+        echo -e "${RED}${BOLD}[✗] Timeout waiting for server to start.${NC}"
+        kill $SERVER_PID 2>/dev/null || true
+        exit 1
+    fi
+
+    export MODAL_PORT=$PORT
+
+    echo -e "\n${CYAN}${BOLD}[✓] Detecting system architecture...${NC}"
     ARCH=$(uname -m)
     OS=$(uname -s | tr '[:upper:]' '[:lower:]')
     if [ "$ARCH" = "x86_64" ]; then
         NGROK_ARCH="amd64"
         CF_ARCH="amd64"
-        echo -e "${GREEN}Detected x86_64 architecture.${NC}"
+        echo -e "${GREEN}${BOLD}[✓] Detected x86_64 architecture.${NC}"
     elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
         NGROK_ARCH="arm64"
         CF_ARCH="arm64"
-        echo -e "${GREEN}Detected ARM64 architecture.${NC}"
+        echo -e "${GREEN}${BOLD}[✓] Detected ARM64 architecture.${NC}"
     elif [[ "$ARCH" == arm* ]]; then
         NGROK_ARCH="arm"
         CF_ARCH="arm"
-        echo -e "${GREEN}Detected ARM architecture.${NC}"
+        echo -e "${GREEN}${BOLD}[✓] Detected ARM architecture.${NC}"
     else
-        echo -e "${RED}Unsupported architecture: $ARCH. Please use a supported system.${NC}"
+        echo -e "${RED}[✗] Unsupported architecture: $ARCH. Please use a supported system.${NC}"
         exit 1
     fi
 
     install_cloudflared() {
         if command -v cloudflared >/dev/null 2>&1; then
-            echo -e "${GREEN}Cloudflared is already installed.${NC}"
+            echo -e "${GREEN}${BOLD}[✓] Cloudflared is already installed.${NC}"
             return 0
         fi
-        echo -e "\n${YELLOW}Installing cloudflared...${NC}"
+        echo -e "\n${YELLOW}${BOLD}[✓] Installing cloudflared...${NC}"
         CF_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$CF_ARCH"
         wget -q --show-progress "$CF_URL" -O cloudflared
         if [ $? -ne 0 ]; then
-            echo -e "${RED}Failed to download cloudflared.${NC}"
+            echo -e "${RED}${BOLD}[✗] Failed to download cloudflared.${NC}"
             return 1
         fi
         chmod +x cloudflared
         sudo mv cloudflared /usr/local/bin/
         if [ $? -ne 0 ]; then
-            echo -e "${RED}Failed to move cloudflared to /usr/local/bin/.${NC}"
+            echo -e "${RED}${BOLD}[✗] Failed to move cloudflared to /usr/local/bin/.${NC}"
             return 1
         fi
-        echo -e "${GREEN}Cloudflared installed successfully.${NC}"
+        echo -e "${GREEN}${BOLD}[✓] Cloudflared installed successfully.${NC}"
         return 0
     }
 
     install_ngrok() {
         if command -v ngrok >/dev/null 2>&1; then
-            echo -e "${GREEN}ngrok is already installed.${NC}"
+            echo -e "${GREEN}${BOLD}[✓] ngrok is already installed.${NC}"
             return 0
         fi
-        echo -e "${YELLOW}Installing ngrok...${NC}"
+        echo -e "${YELLOW}${BOLD}[✓] Installing ngrok...${NC}"
         NGROK_URL="https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-$OS-$NGROK_ARCH.tgz"
         wget -q --show-progress "$NGROK_URL" -O ngrok.tgz
         if [ $? -ne 0 ]; then
-            echo -e "${RED}Failed to download ngrok.${NC}"
+            echo -e "${RED}${BOLD}[✗] Failed to download ngrok.${NC}"
             return 1
         fi
         tar -xzf ngrok.tgz
         if [ $? -ne 0 ]; then
-            echo -e "${RED}Failed to extract ngrok.${NC}"
+            echo -e "${RED}${BOLD}[✗] Failed to extract ngrok.${NC}"
             rm ngrok.tgz
             return 1
         fi
         sudo mv ngrok /usr/local/bin/
         if [ $? -ne 0 ]; then
-            echo -e "${RED}Failed to move ngrok to /usr/local/bin/.${NC}"
+            echo -e "${RED}${BOLD}[✗] Failed to move ngrok to /usr/local/bin/.${NC}"
             rm ngrok.tgz
             return 1
         fi
         rm ngrok.tgz
-        echo -e "${GREEN}ngrok installed successfully.${NC}"
+        echo -e "${GREEN}${BOLD}[✓] ngrok installed successfully.${NC}"
         return 0
     }
 
@@ -223,7 +217,7 @@ else
 
     start_tunnel() {
         if install_cloudflared; then
-            echo -e "\n${CYAN}Starting cloudflared tunnel...${NC}"
+            echo -e "\n${CYAN}${BOLD}[✓] Starting cloudflared tunnel...${NC}"
             cloudflared tunnel --url http://localhost:$PORT > cloudflared_output.log 2>&1 &
             TUNNEL_PID=$!
             counter=0
@@ -231,21 +225,21 @@ else
             while [ $counter -lt $MAX_WAIT ]; do
                 FORWARDING_URL=$(grep -o 'https://[^ ]*\.trycloudflare.com' cloudflared_output.log | head -n1)
                 if [ -n "$FORWARDING_URL" ]; then
-                    echo -e "${GREEN}✓ Cloudflared tunnel started successfully.\n${NC}"
+                    echo -e "${GREEN}${BOLD}[✓] Cloudflared tunnel started successfully.\n${NC}"
                     return 0
                 fi
                 sleep 1
                 counter=$((counter + 1))
             done
-            echo -e "${RED}Timeout waiting for cloudflared URL.${NC}"
+            echo -e "${RED}${BOLD}[✗] Timeout waiting for cloudflared URL.${NC}"
             kill $TUNNEL_PID 2>/dev/null || true
         else
-            echo -e "\n${RED}Failed to install cloudflared, Trying using ngrok${NC}"
+            echo -e "\n${RED}${BOLD}[✗] Failed to install cloudflared, Trying using ngrok${NC}"
         fi
 
         if install_ngrok; then
             while true; do
-                echo -e "\n${YELLOW}To get your authtoken:${NC}"
+                echo -e "\n${YELLOW}${BOLD}To get your authtoken:${NC}"
                 echo "1. Sign up or log in at https://dashboard.ngrok.com"
                 echo "2. Go to 'Your Authtoken' section: https://dashboard.ngrok.com/get-started/your-authtoken"
                 echo "3. Click on the eye icon to reveal your ngrok auth token"
@@ -254,7 +248,7 @@ else
                 read -p "> " NGROK_TOKEN
             
                 if [ -z "$NGROK_TOKEN" ]; then
-                    echo -e "${RED}No token provided. Please enter a valid token.${NC}"
+                    echo -e "${RED}${BOLD}[✗] No token provided. Please enter a valid token.${NC}"
                     continue
                 fi
                 pkill -f ngrok || true
@@ -262,10 +256,10 @@ else
             
                 ngrok authtoken "$NGROK_TOKEN"
                 if [ $? -eq 0 ]; then
-                    echo -e "${GREEN}✓ Successfully authenticated ngrok!${NC}"
+                    echo -e "${GREEN}[✓] Successfully authenticated ngrok!${NC}"
                     break
                 else
-                    echo -e "${RED}✗ Authentication failed. Please check your token and try again.${NC}"
+                    echo -e "${RED}[✗] Authentication failed. Please check your token and try again.${NC}"
                 fi
             done
 
@@ -285,25 +279,25 @@ else
             fi
 
             if [ -n "$FORWARDING_URL" ]; then
-                echo -e "${GREEN}✓ ngrok tunnel started successfully.${NC}"
+                echo -e "${GREEN}${BOLD}[✓] ngrok tunnel started successfully.${NC}"
                 return 0
             else
-                echo -e "${YELLOW}Failed to extract URL from ngrok.${NC}"
+                echo -e "${RED}${BOLD}[✗] Failed to extract URL from ngrok.${NC}"
                 kill $TUNNEL_PID 2>/dev/null || true
             fi
         else
-            echo -e "${YELLOW}Failed to install ngrok.${NC}"
+            echo -e "${RED}${BOLD}[✗] Failed to install ngrok.${NC}"
         fi
 
-        echo -e "${RED}Both cloudflared and ngrok failed to start the tunnel.${NC}"
+        echo -e "${RED}${BOLD}[✗] Both cloudflared and ngrok failed to start the tunnel.${NC}"
         return 1
     }
 
     start_tunnel
     if [ $? -eq 0 ]; then
-        echo -e "${GREEN}${BOLD}✓ Success! Please visit this website and log in using your email:${NC} ${CYAN}${BOLD}${FORWARDING_URL}${NC}"
+        echo -e "${GREEN}${BOLD}[✓] Success! Please visit this website and log in using your email:${NC} ${CYAN}${BOLD}${FORWARDING_URL}${NC}"
     else
-        echo -e "\n${BLUE}Don't worry, you can use this manual method. Please follow these instructions:${NC}"
+        echo -e "\n${BLUE}${BOLD}[✓] Don't worry, you can use this manual method. Please follow these instructions:${NC}"
         echo "1. Open this same WSL/VPS or GPU server on another tab"
         echo "2. Paste this command into this terminal: ngrok http $PORT"
         echo "3. It will show a link similar to this: https://xxxx.ngrok-free.app"
@@ -313,48 +307,48 @@ else
 
     cd ..
 
-    echo -e "\n${CYAN}Waiting for you to complete the login process...${NC}"
+    echo -e "\n${CYAN}${BOLD}[↻] Waiting for you to complete the login process...${NC}"
     while [ ! -f "modal-login/temp-data/userData.json" ]; do
         sleep 3
     done
     
-    echo -e "${GREEN}${BOLD}✓ Success! The userData.json file has been created. Proceeding with remaining setups...${NC}"
+    echo -e "${GREEN}${BOLD}[✓] Success! The userData.json file has been created. Proceeding with remaining setups...${NC}"
     rm -f server.log cloudflared_output.log ngrok_output.log ngrok_output_alt.log
    
 
     ORG_ID=$(awk 'BEGIN { FS = "\"" } !/^[ \t]*[{}]/ { print $(NF - 1); exit }' modal-login/temp-data/userData.json)
-    echo -e "\n${CYAN}ORG_ID has been set to: ${BOLD}$ORG_ID\n${NC}"
+    echo -e "\n${CYAN}${BOLD}[✓] ORG_ID has been set to: $ORG_ID\n${NC}"
 
-    echo -e "\n${CYAN}Waiting for API key to become activated...${NC}"
+    echo -e "${CYAN}${BOLD}[✓] Waiting for API key to become activated...${NC}"
     while true; do
         STATUS=$(curl -s "http://localhost:$PORT/api/get-api-key-status?orgId=$ORG_ID")
         if [[ "$STATUS" == "activated" ]]; then
-            echo -e "${GREEN}✓ Success! API key is activated! Proceeding...\n${NC}"
+            echo -e "${GREEN}${BOLD}[✓] Success! API key is activated! Proceeding...\n${NC}"
             break
         else
-            echo "Waiting for API key to be activated..."
+            echo "[↻] Waiting for API key to be activated..."
             sleep 5
         fi
     done
 fi
 
-echo -e "${CYAN}Installing required Python packages, may take few mins depending on your internet speed...${NC}"
+echo -e "${CYAN}${BOLD}[✓] Installing required Python packages, may take few mins depending on your internet speed...${NC}"
 pip install --disable-pip-version-check -q -r "$ROOT"/requirements-hivemind.txt > /dev/null
 pip install --disable-pip-version-check -q -r "$ROOT"/requirements.txt > /dev/null
 
-echo -e "${GREEN}>>> Awesome, All packages installed successfully!\n${NC}"
+echo -e "${GREEN}${BOLD}>>> Awesome, All packages installed successfully!\n${NC}"
 
 if [ -z "$CONFIG_PATH" ]; then
     if command -v nvidia-smi &> /dev/null || [ -d "/proc/driver/nvidia" ]; then
-        echo -e "${GREEN}GPU detected, using GPU configuration${NC}"
+        echo -e "${GREEN}${BOLD}[✓] GPU detected, using GPU configuration${NC}"
         CONFIG_PATH="$ROOT/hivemind_exp/configs/gpu/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
-        echo -e "${CYAN}Config file : ${BOLD}$CONFIG_PATH\n${NC}"
-        echo -e "${CYAN}Installing GPU-specific requirements, may take few mins depending on your internet speed...${NC}"
+        echo -e "${CYAN}${BOLD}[✓] Config file : ${BOLD}$CONFIG_PATH\n${NC}"
+        echo -e "${CYAN}${BOLD}[✓] Installing GPU-specific requirements, may take few mins depending on your internet speed...${NC}"
         pip install --disable-pip-version-check -q -r "$ROOT"/requirements_gpu.txt
     else
-        echo -e "${YELLOW}${BOLD}No GPU detected, using CPU configuration${NC}"
+        echo -e "${YELLOW}${BOLD}[✓] No GPU detected, using CPU configuration${NC}"
         CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
-        echo -e "${CYAN}Config file : ${BOLD}$CONFIG_PATH\n${NC}"
+        echo -e "${CYAN}${BOLD}[✓] Config file : ${BOLD}$CONFIG_PATH\n${NC}"
     fi
 fi
 
@@ -371,7 +365,9 @@ else
     esac
 fi
 
-echo -e "\n${GREEN}${BOLD}Good luck in the swarm! Your training session is about to begin.\n${NC}"
+echo -e "\n${GREEN}${BOLD}[✓] Good luck in the swarm! Your training session is about to begin.\n${NC}"
+[ "$(uname)" = "Darwin" ] && sed -i '' -E 's/(startup_timeout: *float *= *)[0-9.]+/\1120/' $(python3 -c "import hivemind.p2p.p2p_daemon as m; print(m.__file__)") || sed -i -E 's/(startup_timeout: *float *= *)[0-9.]+/\1120/' $(python3 -c "import hivemind.p2p.p2p_daemon as m; print(m.__file__)")
+sleep 2
 
 if [ -n "$ORG_ID" ]; then
     python -m hivemind_exp.gsm8k.train_single_gpu \
