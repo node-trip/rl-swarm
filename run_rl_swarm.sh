@@ -46,7 +46,7 @@ if [ -f "modal-login/temp-data/userData.json" ]; then
     npm install --legacy-peer-deps
     
     echo -e "\n${CYAN}${BOLD}[✓] Starting the development server...${NC}"
-    lsof -ti:3000 | xargs kill -9
+    pid=$(lsof -ti:3000); if [ -n "$pid" ]; then kill -9 $pid; fi
     sleep 3
     npm run dev > server.log 2>&1 &
     SERVER_PID=$!
@@ -79,7 +79,7 @@ else
     npm install --legacy-peer-deps
 
     echo -e "\n${CYAN}${BOLD}[✓] Starting the development server...${NC}"
-    lsof -ti:3000 | xargs kill -9
+    pid=$(lsof -ti:3000); if [ -n "$pid" ]; then kill -9 $pid; fi
     sleep 3
     npm run dev > server.log 2>&1 &
     SERVER_PID=$!
