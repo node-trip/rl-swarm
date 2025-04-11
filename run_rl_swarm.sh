@@ -46,6 +46,8 @@ if [ -f "modal-login/temp-data/userData.json" ]; then
     npm install --legacy-peer-deps
     
     echo -e "\n${CYAN}${BOLD}[✓] Starting the development server...${NC}"
+    lsof -ti:3000 | xargs kill -9
+    sleep 3
     npm run dev > server.log 2>&1 &
     SERVER_PID=$!
     MAX_WAIT=60  
@@ -65,8 +67,6 @@ if [ -f "modal-login/temp-data/userData.json" ]; then
         kill $SERVER_PID 2>/dev/null || true
         exit 1
     fi
-
-    export MODAL_PORT=$PORT
     
     cd ..
 
@@ -79,6 +79,8 @@ else
     npm install --legacy-peer-deps
 
     echo -e "\n${CYAN}${BOLD}[✓] Starting the development server...${NC}"
+    lsof -ti:3000 | xargs kill -9
+    sleep 3
     npm run dev > server.log 2>&1 &
     SERVER_PID=$!
     MAX_WAIT=60  
@@ -98,8 +100,6 @@ else
         kill $SERVER_PID 2>/dev/null || true
         exit 1
     fi
-
-    export MODAL_PORT=$PORT
 
     echo -e "\n${CYAN}${BOLD}[✓] Detecting system architecture...${NC}"
     ARCH=$(uname -m)
@@ -314,7 +314,6 @@ else
     
     echo -e "${GREEN}${BOLD}[✓] Success! The userData.json file has been created. Proceeding with remaining setups...${NC}"
     rm -f server.log cloudflared_output.log ngrok_output.log ngrok_output_alt.log
-   
 
     ORG_ID=$(awk 'BEGIN { FS = "\"" } !/^[ \t]*[{}]/ { print $(NF - 1); exit }' modal-login/temp-data/userData.json)
     echo -e "\n${CYAN}${BOLD}[✓] ORG_ID has been set to: $ORG_ID\n${NC}"
